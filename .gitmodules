@@ -1,0 +1,3 @@
+[submodule "lib/SmartplugController"]
+	path = lib/SmartplugController
+	url = https://github.com/Miraculix200/SmartplugController.git
