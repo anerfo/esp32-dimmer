@@ -14,11 +14,11 @@ class PushButton
             DoublePress
         };
     private:
-        uint8_t _Pin;
+        gpio_num_t _Pin;
         uint32_t _PressCycles;
         
-        int _PressedLastCycle;
-        int _LastChangeCycle;
+        uint32_t _PressedLastCycle;
+        uint32_t _LastChangeCycle;
 
         State _CurrentState;
 
@@ -58,6 +58,7 @@ class PushButton
                     if(up)
                     {
                         _CurrentState = Idle;
+                        LongPressFinishAction();
                     }
                     break;
                 case Press:
@@ -83,7 +84,7 @@ class PushButton
                     }
                     break;
                 case DoublePress:
-                    if(down || pressCycle)
+                    if(up || pressCycle)
                     {
                         _CurrentState = Idle;
                     }
@@ -101,13 +102,14 @@ class PushButton
 
     public:
 
-        PushButton(uint8_t pin, uint8_t mode = INPUT_PULLUP, uint32_t pressCycles = 10)
+        PushButton(gpio_num_t pin, uint8_t mode = INPUT_PULLUP, uint32_t pressCycles = 10)
         {
             _Pin = pin;
             _PressCycles = pressCycles;
             _CurrentState = Idle;
             pinMode(_Pin, mode);
             LongPressAction = []{};
+            LongPressFinishAction = []{};
             PressAction = []{};
             DoublePressAction = []{};
             StateChangeAction = [](State oldState, State newState){};
@@ -130,7 +132,22 @@ class PushButton
             _PressedLastCycle = pressed;
         }
 
+        void SleepUntilButtonPressed()
+        {
+            if(_CurrentState == Idle)
+            {
+                esp_sleep_enable_ext0_wakeup(_Pin, 0);
+                Serial.printf("Going to sleep\n");
+                esp_light_sleep_start();
+                Serial.printf("Wake Up\n");
+                ManageState(false, true, false);
+                _LastChangeCycle = 0;
+                _PressedLastCycle = true;
+            }
+        }
+
         void (*LongPressAction)();
+        void (*LongPressFinishAction)();
         void (*PressAction)();
         void (*DoublePressAction)();
         void (*StateChangeAction)(State oldState, State newState);
