@@ -1,0 +1,2 @@
+#define WLAN_SSID "[PUT_WLAN_SSID_HERE]"
+#define WLAN_PW   "[PUT_WLAN_PASSWORD_HERE]"

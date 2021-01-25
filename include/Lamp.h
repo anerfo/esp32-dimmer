@@ -26,7 +26,7 @@ class Lamp
         {
             Pin = pin;
             Channel = channel;
-            Brightness = 0;
+            Brightness = MaxValue;
             pinMode(pin, OUTPUT);
             ledcAttachPin(pin, Channel);
             ledcSetup(Channel, Frequency, Resolution);
@@ -55,6 +55,7 @@ class Lamp
                 value = 0;
             }
             ledcWrite(Channel, value);
+            Serial.printf("Lamp: %i\n", value);
         }
 
         uint32_t GetBrightness()
