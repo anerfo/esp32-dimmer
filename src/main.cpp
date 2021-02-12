@@ -4,6 +4,7 @@
 #include "Memory.h"
 #include <Arduino.h>
 #include <WiFi.h>
+#include "OtaUpdate.h"
 
 #if __has_include("myconfig.h")
   #include "myconfig.h"
@@ -16,6 +17,16 @@ const uint32_t LOOP_DELAY = 50;
 
 PushButton button(GPIO_NUM_12);
 Lamp lamp(13);
+
+enum ModeState {
+  OPERATION,
+  PREPARE_DOWN,
+  PREPARE_UP,
+  DISCO_MODE,
+  CANDLE_MODE
+} mode;
+bool strobo = true;
+int modeCounter;
 
 enum DIMMER_STATE {
   COUNT_UP,
@@ -30,15 +41,22 @@ void setSmartPlug(Lamp::STATE state)
 {
   if(WiFi.status() == WL_CONNECTED)
   {
-    if(state == Lamp::STATE::OFF)
+    try
     {
-      Serial.printf("Turn off smartplug\n");
-      smartPlug.off();
+      if(state == Lamp::STATE::OFF)
+      {
+        Serial.printf("Turn off smartplug\n");
+        smartPlug.off();
+      }
+      else
+      {
+        Serial.printf("Turn on smartplug\n");
+        smartPlug.on();
+      }
     }
-    else
+    catch(const std::exception& ex)
     {
-      Serial.printf("Turn on smartplug\n");
-      smartPlug.on();
+        Serial.printf("Exception caught while trying to switch smart plug\n");
     }
   }  
 }
@@ -47,17 +65,25 @@ uint8_t wlanConnectAttempts = 0;
 
 void setup() {
   Serial.begin(115200);
-
+  modeCounter = 0;
   button.DoublePressAction = []{
-    useSmartplug = !useSmartplug;
-    if(useSmartplug == false && WiFi.status() == WL_CONNECTED)
+    if(mode != PREPARE_DOWN && mode != PREPARE_UP)
     {
-      setSmartPlug(Lamp::STATE::OFF);
-      WiFi.disconnect();
+      useSmartplug = !useSmartplug;
+      if(useSmartplug == false && WiFi.status() == WL_CONNECTED)
+      {
+        setSmartPlug(Lamp::STATE::OFF);
+        WiFi.disconnect();
+      }
+      else if(WiFi.status() == WL_CONNECTED)
+      {
+        setSmartPlug(lamp.GetLampState());
+      }
     }
-    else if(WiFi.status() == WL_CONNECTED)
+    else
     {
-      setSmartPlug(lamp.GetLampState());
+      mode = mode == PREPARE_DOWN ? CANDLE_MODE : DISCO_MODE;
+      mode == CANDLE_MODE ? Serial.printf("Time for some romance ;)\n") : Serial.printf("Welcome to the disco\n");
     }
   };
   lamp.Print();
@@ -70,6 +96,8 @@ void setup() {
     lamp.Toggle();
   };
   button.LongPressAction = []{
+    Serial.printf("Mode Counter: %i ", modeCounter);
+
     if(direction == COUNT_UP)
     {
       lamp.Brighter();
@@ -78,9 +106,16 @@ void setup() {
     {
       lamp.Darker();
     }
+    modeCounter++;
   };
   button.LongPressFinishAction = []{
     direction = direction == COUNT_UP ? COUNT_DOWN : COUNT_UP;
+    if(modeCounter > 10000 / LOOP_DELAY)
+    {
+      mode = direction == COUNT_UP ? PREPARE_DOWN : PREPARE_UP;
+      Serial.printf("Switched to mode %i\n", mode);
+    }
+    modeCounter = 0;
   };
 }
 
@@ -88,12 +123,28 @@ void loop() {
   button.Evaluate();
   if(lamp.GetLampState() == Lamp::STATE::OFF)
   {
+    mode = OPERATION;
     button.SleepUntilButtonPressed();
     if(WiFi.status() == WL_CONNECTED)
     {
       WiFi.disconnect();
     }    
   }
+  
+  if((mode == DISCO_MODE || mode == CANDLE_MODE))
+  {
+    if(mode == DISCO_MODE)
+    {
+      strobo ? lamp.SetBrightness(255, false, true) : lamp.SetBrightness(1, false, true);
+      strobo = !strobo;
+    }
+    else if(mode == CANDLE_MODE)
+    {
+      uint32_t val = rand() % 100 + 155;
+      lamp.SetBrightness(val, true);
+    }
+  }
+
   if(useSmartplug)
   {
     if(WiFi.status() != WL_CONNECTED)
@@ -118,6 +169,7 @@ void loop() {
         Serial.printf("WLAN connected\n");
         setSmartPlug(lamp.GetLampState());
         wlanConnectAttempts = 0;
+        checkOta();
       }
     }
   }

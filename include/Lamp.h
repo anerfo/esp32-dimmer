@@ -15,7 +15,7 @@ class Lamp
         const int MinValue = MaxValue * 0.1;
         const int BrightnessStep = MaxValue / 20;
         const int FadeSteps = 100;
-        const int FadeInDuration = 1000;
+        const int FadeInDuration = 2000;
         STATE LampState = OFF;
         int Pin;
         int Channel;
@@ -32,10 +32,10 @@ class Lamp
             ledcSetup(Channel, Frequency, Resolution);
         }
 
-        void SetBrightness(uint32_t newVal, bool fade = false) {
+        void SetBrightness(uint32_t newVal, bool fade = false, bool force = false) {
             uint32_t value = newVal;
             if (value > 0) {
-                if(fade == false)
+                if(fade == false && force == false)
                 {
                     if(value > MaxValue)
                     {
