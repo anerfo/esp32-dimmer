@@ -25,7 +25,6 @@ enum ModeState {
   DISCO_MODE,
   CANDLE_MODE
 } mode;
-bool strobo = true;
 int modeCounter;
 
 enum DIMMER_STATE {
@@ -34,7 +33,7 @@ enum DIMMER_STATE {
 } direction;
 
 bool useSmartplug = false;
-IPAddress smartPlugIp = { 192, 168, 2, 126 };
+IPAddress smartPlugIp = { 192, 168, 2, 105 };
 PlugController smartPlug(smartPlugIp, 9999);
 
 void setSmartPlug(Lamp::STATE state)
@@ -47,6 +46,7 @@ void setSmartPlug(Lamp::STATE state)
       {
         Serial.printf("Turn off smartplug\n");
         smartPlug.off();
+        smartPlug.setLed(false);
       }
       else
       {
@@ -131,18 +131,21 @@ void loop() {
     }    
   }
   
-  if((mode == DISCO_MODE || mode == CANDLE_MODE))
+  if(mode == DISCO_MODE)
   {
-    if(mode == DISCO_MODE)
+    modeCounter++;
+    if(modeCounter >= 300 / LOOP_DELAY)
     {
-      strobo ? lamp.SetBrightness(255, false, true) : lamp.SetBrightness(1, false, true);
-      strobo = !strobo;
+      modeCounter = 0;
+      lamp.SetBrightness(255, false, true);
+      delay(20);
+      lamp.SetBrightness(1, false, true);
     }
-    else if(mode == CANDLE_MODE)
-    {
-      uint32_t val = rand() % 100 + 155;
-      lamp.SetBrightness(val, true);
-    }
+  }
+  else if(mode == CANDLE_MODE)
+  {
+    uint32_t val = rand() % 50 + 50;
+    lamp.SetBrightness(val, true);
   }
 
   if(useSmartplug)

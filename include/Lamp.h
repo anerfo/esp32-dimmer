@@ -10,10 +10,10 @@ class Lamp
 
     private:
         const int Frequency = 500;
-        const int Resolution = 8;
+        const int Resolution = 10;
         const int MaxValue = (1 << Resolution);
-        const int MinValue = MaxValue * 0.1;
-        const int BrightnessStep = MaxValue / 20;
+        const int MinValue = MaxValue * 0.05;
+        const int BrightnessStep = MaxValue / 50;
         const int FadeSteps = 100;
         const int FadeInDuration = 2000;
         STATE LampState = OFF;
@@ -65,10 +65,13 @@ class Lamp
 
         void Fade(uint32_t start, uint32_t end)
         {
-            float step = ((float)start - (float)end) / FadeSteps;
+            float f_start = start == 0 ? 1 : start;
+            float f_end = end == 0 ? 1 : end;
+            float k = log(f_end/f_start) / FadeSteps;
+
             for(int i = 1; i <= FadeSteps; i++)
             {
-                SetBrightness(start - i * step, true);
+                SetBrightness(f_start * exp(k * i), true);
                 delay(FadeInDuration / FadeSteps);
             }
             SetBrightness(end);            
@@ -103,7 +106,12 @@ class Lamp
 
         void Darker()
         {
-            SetBrightness(Brightness - BrightnessStep);
+            int value = Brightness - BrightnessStep;
+            if(value < MinValue)
+            {
+                value = MinValue;
+            }
+            SetBrightness(value);
         }
 
         const STATE GetLampState()
